@@ -59,6 +59,14 @@ int main(int argc, char **argv) {
         if (strcmp(first_token, "pwd") == 0) {
             // TODO Task 1: Print the shell's current working directory
             // Use the getcwd() system call
+            char buf[CMD_LEN];
+            if (getcwd(buf, CMD_LEN) == NULL) {
+                perror("getcwd");
+                strvec_clear(&tokens);
+                strvec_init(&tokens);
+            } else {
+                printf("%s\n", buf);
+            }
         }
 
         else if (strcmp(first_token, "cd") == 0) {
@@ -67,6 +75,35 @@ int main(int argc, char **argv) {
             // If the user supplied an argument (token at index 1), change to that directory
             // Otherwise, change to the home directory by default
             // This is available in the HOME environment variable (use getenv())
+
+            char *new_env;
+            int len_args = tokens.length;
+
+            if (len_args > 2) {
+                printf("Invalid arguments");
+                strvec_clear(&tokens);
+                strvec_init(&tokens);
+
+            } else if (len_args == 1) {
+                if ((new_env = getenv("HOME")) == NULL) {
+                    printf("chdir");
+                    strvec_clear(&tokens);
+                    strvec_init(&tokens);
+
+                } else if (chdir(new_env) == -1) {
+                    perror("chdir");
+                    strvec_clear(&tokens);
+                    strvec_init(&tokens);
+                }
+
+            } else if (len_args == 2) {
+                new_env = strvec_get(&tokens, 1);
+                if (chdir(new_env) == -1) {
+                    perror("chdir");
+                    strvec_clear(&tokens);
+                    strvec_init(&tokens);
+                }
+            }
         }
 
         else if (strcmp(first_token, "exit") == 0) {

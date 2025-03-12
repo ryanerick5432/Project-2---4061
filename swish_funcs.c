@@ -29,6 +29,7 @@ int tokenize(char *s, strvec_t *tokens) {
 
     while (token != NULL) {
         if (strvec_add(tokens, token) == -1) {
+            printf("Failed to add token");
             return -1;
         }
         token = strtok(NULL, " ");
