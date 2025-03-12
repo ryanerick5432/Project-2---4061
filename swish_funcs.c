@@ -24,6 +24,15 @@ int tokenize(char *s, strvec_t *tokens) {
     // Use the strtok() function to accomplish this
     // Add each token to the 'tokens' parameter (a string vector)
     // Return 0 on success, -1 on error
+
+    char *token = strtok(s, " ");
+
+    while (token != NULL) {
+        if (strvec_add(tokens, token) == -1) {
+            return -1;
+        }
+        token = strtok(NULL, " ");
+    }
     return 0;
 }
 
