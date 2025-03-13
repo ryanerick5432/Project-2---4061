@@ -165,6 +165,22 @@ int main(int argc, char **argv) {
             //   2. Call run_command() in the child process
             //   2. In the parent, use waitpid() to wait for the program to exit
 
+            pid_t pid = fork();
+
+            if (pid < 0) {
+                perror("fork failed");
+            } else if (pid > 0) {
+                int status;
+                if (waitpid(pid, &status, WCONTINUED) == -1) {
+                    perror("wait failed");
+                }
+                // int res = WEXITSTATUS(status);
+            } else {
+                if (run_command(&tokens) == -1) {
+                    return 1;
+                }
+            }
+
             // TODO Task 4: Set the child process as the target of signals sent to the terminal
             // via the keyboard.
             // To do this, call 'tcsetpgrp(STDIN_FILENO, <child_pid>)', where child_pid is the

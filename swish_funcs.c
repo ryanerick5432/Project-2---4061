@@ -45,6 +45,20 @@ int run_command(strvec_t *tokens) {
     // Another Hint: You have a guarantee of the longest possible needed array, so you
     // won't have to use malloc.
 
+    char *args[MAX_ARGS];
+    for (int i = 0; i < (*tokens).length; i++) {
+        args[i] = strvec_get(tokens, i);
+        if (args[i] == NULL) {
+            return -1;
+        }
+    }
+    args[((*tokens).length)] = NULL;
+
+    if (execvp(args[0], args) == -1) {
+        perror("exec");
+        return -1;
+    }
+
     // TODO Task 3: Extend this function to perform output redirection before exec()'ing
     // Check for '<' (redirect input), '>' (redirect output), '>>' (redirect and append output)
     // entries inside of 'tokens' (the strvec_find() function will do this for you)
