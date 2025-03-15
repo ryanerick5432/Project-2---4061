@@ -44,21 +44,122 @@ int run_command(strvec_t *tokens) {
     // Hint: Build a string array from the 'tokens' vector and pass this into execvp()
     // Another Hint: You have a guarantee of the longest possible needed array, so you
     // won't have to use malloc.
+    int stdout_bak = dup(STDOUT_FILENO);
+    int stdin_bak = dup(STDIN_FILENO);
+
+    int out_flag = -1;
+    int in_flag = -1;
+    int append_flag = -1;
+    int out_loc = 0;
+    int in_loc = 0;
+    int num_args = 0;
 
     char *args[MAX_ARGS];
     for (int i = 0; i < (*tokens).length; i++) {
-        args[i] = strvec_get(tokens, i);
-        if (args[i] == NULL) {
+        if (strvec_get(tokens, i) == NULL) {
+            return -1;
+        }
+
+        if (strcmp(strvec_get(tokens, i), ">") == 0) {
+            out_loc = i;
+            out_flag = 1;
+            i++;
+        } else if (strcmp(strvec_get(tokens, i), "<") == 0) {
+            in_loc = i;
+            in_flag = 1;
+            i++;
+        } else if (strcmp(strvec_get(tokens, i), ">>") == 0) {
+            out_loc = i;
+            out_flag = 1;
+            append_flag = 1;
+            i++;
+        } else {
+            args[i] = strvec_get(tokens, i);
+            num_args++;
+        }
+    }
+    args[num_args++] = NULL;
+
+    if (out_flag != -1) {
+        int out_fd;
+        if (append_flag == -1) {
+            if ((out_fd = open(strvec_get(tokens, out_loc + 1), O_WRONLY | O_CREAT | O_TRUNC,
+                               S_IRUSR | S_IWUSR)) == -1) {
+                perror("Failed to open output file");
+                return -1;
+            }
+            if (dup2(out_fd, STDOUT_FILENO) == -1) {
+                close(out_fd);
+                return -1;
+            }
+            if (close(out_fd) == -1) {
+                dup2(stdout_bak, STDOUT_FILENO);
+                return -1;
+            }
+        } else {
+            if ((out_fd = open(strvec_get(tokens, out_loc + 1), O_WRONLY | O_CREAT | O_APPEND,
+                               S_IRUSR | S_IWUSR)) == -1) {
+                perror("Failed to open output file");
+                return -1;
+            }
+
+            if (dup2(out_fd, STDOUT_FILENO) == -1) {
+                close(out_fd);
+                return -1;
+            }
+            if (close(out_fd) == -1) {
+                dup2(stdout_bak, STDOUT_FILENO);
+                return -1;
+            }
+        }
+    }
+    int in_fd;
+    if (in_flag != -1) {
+        if ((in_fd = open(strvec_get(tokens, in_loc + 1), O_RDONLY, S_IRUSR)) == -1) {
+            perror("Failed to open input file");
+            if (out_flag != 1) {
+                dup2(stdout_bak, STDOUT_FILENO);
+            }
+            return -1;
+        }
+
+        if (dup2(in_fd, STDIN_FILENO) == -1) {
+            close(in_fd);
+            if (out_flag != 1) {
+                dup2(stdout_bak, STDOUT_FILENO);
+            }
+            return -1;
+        }
+        if (close(in_fd) == -1) {
+            dup2(stdin_bak, STDIN_FILENO);
+            if (out_flag != 1) {
+                dup2(stdout_bak, STDOUT_FILENO);
+            }
             return -1;
         }
     }
-    args[((*tokens).length)] = NULL;
-
     if (execvp(args[0], args) == -1) {
         perror("exec");
         return -1;
     }
 
+    if (out_flag != -1) {
+        if (dup2(stdout_bak, STDOUT_FILENO) == -1) {
+            dup2(stdin_bak, STDIN_FILENO);
+            return -1;
+        }
+        if (dup2(stdout_bak, STDOUT_FILENO) == -1) {
+            if (in_flag != 0) {
+                dup2(stdin_bak, STDIN_FILENO);
+            }
+            return -1;
+        }
+    }
+    if (in_flag != 0) {
+        if (dup2(stdin_bak, STDIN_FILENO) == -1) {
+            return -1;
+        }
+    }
     // TODO Task 3: Extend this function to perform output redirection before exec()'ing
     // Check for '<' (redirect input), '>' (redirect output), '>>' (redirect and append output)
     // entries inside of 'tokens' (the strvec_find() function will do this for you)
