@@ -55,16 +55,17 @@ int main(int argc, char **argv) {
             continue;
         }
         const char *first_token = strvec_get(&tokens, 0);
-
+        // print current working directory
         if (strcmp(first_token, "pwd") == 0) {
             // TODO Task 1: Print the shell's current working directory
             // Use the getcwd() system call
-            char buf[CMD_LEN];
+            char buf[CMD_LEN];    // buffer to hold current path name
             if (getcwd(buf, CMD_LEN) == NULL) {
                 perror("getcwd");
                 strvec_clear(&tokens);
                 strvec_init(&tokens);
             } else {
+                // print the current path name
                 printf("%s\n", buf);
             }
         }
@@ -79,27 +80,34 @@ int main(int argc, char **argv) {
             char *new_env;
             int len_args = tokens.length;
 
+            // too many input arguments
             if (len_args > 2) {
                 printf("Invalid arguments");
                 strvec_clear(&tokens);
                 strvec_init(&tokens);
 
+                // Return to Home Dir
             } else if (len_args == 1) {
+                // get the home directory
                 if ((new_env = getenv("HOME")) == NULL) {
                     printf("chdir");
                     strvec_clear(&tokens);
                     strvec_init(&tokens);
 
+                    // enter the home directory
                 } else if (chdir(new_env) == -1) {
-                    perror("chdir");
+                    printf("chdir");
                     strvec_clear(&tokens);
                     strvec_init(&tokens);
                 }
 
+                // enter a new directory
             } else if (len_args == 2) {
+                // get the directory to enter
                 new_env = strvec_get(&tokens, 1);
+                // enter the new directory
                 if (chdir(new_env) == -1) {
-                    perror("chdir");
+                    printf("chdir");
                     strvec_clear(&tokens);
                     strvec_init(&tokens);
                 }
@@ -165,17 +173,32 @@ int main(int argc, char **argv) {
             //   2. Call run_command() in the child process
             //   2. In the parent, use waitpid() to wait for the program to exit
 
+            // spawn the subprocess for non-built-in commands
             pid_t pid = fork();
 
+            // check if subprocess successfully initialized
             if (pid < 0) {
                 perror("fork failed");
+
+                // parent process
             } else if (pid > 0) {
                 int status;
+                // put the child process in the foreground (keyboard signals redirect to this
+                // process)
+                if (tcsetpgrp(STDIN_FILENO, pid) == -1) {
+                    perror("process group change failed");
+                }
+                // wait for child to execute
                 if (waitpid(pid, &status, WCONTINUED) == -1) {
                     perror("wait failed");
                 }
+                // restore keyboard input signals to parent process after execution
+                if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
+                    perror("process group restore failed");
+                }
                 // int res = WEXITSTATUS(status);
             } else {
+                // run the child process.
                 if (run_command(&tokens) == -1) {
                     return 1;
                 }

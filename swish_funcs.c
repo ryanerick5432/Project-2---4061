@@ -25,8 +25,10 @@ int tokenize(char *s, strvec_t *tokens) {
     // Add each token to the 'tokens' parameter (a string vector)
     // Return 0 on success, -1 on error
 
+    // initialize tokenization
     char *token = strtok(s, " ");
 
+    // loop - continues until string is fully tokenized
     while (token != NULL) {
         if (strvec_add(tokens, token) == -1) {
             printf("Failed to add token");
@@ -44,44 +46,59 @@ int run_command(strvec_t *tokens) {
     // Hint: Build a string array from the 'tokens' vector and pass this into execvp()
     // Another Hint: You have a guarantee of the longest possible needed array, so you
     // won't have to use malloc.
+
+    // create backups for stdout and stdin - restore later
     int stdout_bak = dup(STDOUT_FILENO);
     int stdin_bak = dup(STDIN_FILENO);
 
+    // flags for type output/input redirection - append to output, output+overwrite, input
+    // redirection
     int out_flag = -1;
     int in_flag = -1;
     int append_flag = -1;
+
+    // index in token for the input/output redirection
     int out_loc = 0;
     int in_loc = 0;
+    // total number of arguments
     int num_args = 0;
 
     char *args[MAX_ARGS];
     for (int i = 0; i < (*tokens).length; i++) {
+        // if tokens ends before reaching its length, error
         if (strvec_get(tokens, i) == NULL) {
             return -1;
         }
 
+        // overwrite and redirect output file - set flags
         if (strcmp(strvec_get(tokens, i), ">") == 0) {
             out_loc = i;
             out_flag = 1;
             i++;
+            // redirect input file - set flags
         } else if (strcmp(strvec_get(tokens, i), "<") == 0) {
             in_loc = i;
             in_flag = 1;
             i++;
+            // append and redirect output file - set flags
         } else if (strcmp(strvec_get(tokens, i), ">>") == 0) {
             out_loc = i;
             out_flag = 1;
             append_flag = 1;
             i++;
         } else {
+            // not a redirection argument - adds to command arguments
             args[i] = strvec_get(tokens, i);
             num_args++;
         }
     }
+    // null terminated arguments
     args[num_args++] = NULL;
 
+    // check for output redirection
     if (out_flag != -1) {
         int out_fd;
+        // if not appending, truncate/create file, redirect output, and close
         if (append_flag == -1) {
             if ((out_fd = open(strvec_get(tokens, out_loc + 1), O_WRONLY | O_CREAT | O_TRUNC,
                                S_IRUSR | S_IWUSR)) == -1) {
@@ -96,6 +113,7 @@ int run_command(strvec_t *tokens) {
                 dup2(stdout_bak, STDOUT_FILENO);
                 return -1;
             }
+            // if appending, open file, redirect output, and close
         } else {
             if ((out_fd = open(strvec_get(tokens, out_loc + 1), O_WRONLY | O_CREAT | O_APPEND,
                                S_IRUSR | S_IWUSR)) == -1) {
@@ -113,6 +131,7 @@ int run_command(strvec_t *tokens) {
             }
         }
     }
+    // if redirecting input, open file for reading, redirect, and close
     int in_fd;
     if (in_flag != -1) {
         if ((in_fd = open(strvec_get(tokens, in_loc + 1), O_RDONLY, S_IRUSR)) == -1) {
@@ -138,28 +157,29 @@ int run_command(strvec_t *tokens) {
             return -1;
         }
     }
+
+    // child process - make child own process group
+    if (setpgid(0, getpid()) == -1) {
+        return -1;
+    }
+
+    // set new mask for child process, with own mask
+    struct sigaction sac;
+    sac.sa_handler = SIG_DFL;
+    if (sigfillset(&sac.sa_mask) == -1) {
+        return 1;
+    }
+    sac.sa_flags = SA_RESTART;
+    if (sigaction(SIGTTIN, &sac, NULL) == -1 || sigaction(SIGTTOU, &sac, NULL) == -1) {
+        return -1;
+    }
+
+    // execute the command (with redirection executed prior)
     if (execvp(args[0], args) == -1) {
         perror("exec");
         return -1;
     }
 
-    if (out_flag != -1) {
-        if (dup2(stdout_bak, STDOUT_FILENO) == -1) {
-            dup2(stdin_bak, STDIN_FILENO);
-            return -1;
-        }
-        if (dup2(stdout_bak, STDOUT_FILENO) == -1) {
-            if (in_flag != 0) {
-                dup2(stdin_bak, STDIN_FILENO);
-            }
-            return -1;
-        }
-    }
-    if (in_flag != 0) {
-        if (dup2(stdin_bak, STDIN_FILENO) == -1) {
-            return -1;
-        }
-    }
     // TODO Task 3: Extend this function to perform output redirection before exec()'ing
     // Check for '<' (redirect input), '>' (redirect output), '>>' (redirect and append output)
     // entries inside of 'tokens' (the strvec_find() function will do this for you)
