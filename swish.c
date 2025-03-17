@@ -189,14 +189,14 @@ int main(int argc, char **argv) {
                     perror("process group change failed");
                 }
                 // wait for child to execute
-                if (waitpid(pid, &status, WCONTINUED) == -1) {
+                if (waitpid(pid, &status, WUNTRACED) == -1) {
                     perror("wait failed");
                 }
                 // restore keyboard input signals to parent process after execution
                 if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
                     perror("process group restore failed");
                 }
-                // int res = WEXITSTATUS(status);
+                //  int res = WEXITSTATUS(status);
             } else {
                 // run the child process.
                 if (run_command(&tokens) == -1) {
