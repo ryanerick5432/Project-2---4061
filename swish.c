@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
                 new_env = strvec_get(&tokens, 1);
                 // enter the new directory
                 if (chdir(new_env) == -1) {
-                    printf("chdir");
+                    printf("chdir: No such file or directory\n");
                     strvec_clear(&tokens);
                     strvec_init(&tokens);
                 }
