@@ -167,7 +167,7 @@ int run_command(strvec_t *tokens) {
     struct sigaction sac;
     sac.sa_handler = SIG_DFL;
     if (sigfillset(&sac.sa_mask) == -1) {
-        return 1;
+        return -1;
     }
     sac.sa_flags = SA_RESTART;
     if (sigaction(SIGTTIN, &sac, NULL) == -1 || sigaction(SIGTTOU, &sac, NULL) == -1) {
