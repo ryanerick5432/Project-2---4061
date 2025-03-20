@@ -200,6 +200,39 @@ int run_command(strvec_t *tokens) {
 }
 
 int resume_job(strvec_t *tokens, job_list_t *jobs, int is_foreground) {
+    job_t *temp_job;
+    int status;
+    int job_id = atoi(strvec_get(tokens, 1));
+    if (job_id < 0) {
+        return -1;
+    }
+    temp_job = job_list_get(jobs, job_id);
+    if (temp_job == NULL) {
+        fprintf(stderr, "Job index out of bounds\n");
+        return -1;
+    }
+    if (tcsetpgrp(STDIN_FILENO, temp_job->pid) == -1) {
+        perror("tcsetpgrp");
+        return -1;
+    }
+    if (kill(temp_job->pid, SIGCONT) == -1) {
+        perror("kill");
+        return -1;
+    }
+    if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
+        perror("wait failed");
+        return -1;
+    }
+    if (WIFEXITED(status) || WIFSIGNALED(status)) {
+        if (job_list_remove(jobs, job_id) == -1) {
+            return -1;
+        }
+    }
+    if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
+        perror("tcsetpgrp");
+        return -1;
+    }
+    return 0;
     // TODO Task 5: Implement the ability to resume stopped jobs in the foreground
     // 1. Look up the relevant job information (in a job_t) from the jobs list
     //    using the index supplied by the user (in tokens index 1)
@@ -217,8 +250,6 @@ int resume_job(strvec_t *tokens, job_list_t *jobs, int is_foreground) {
     // 2. DO NOT call waitpid() to wait on the job
     // 3. Make sure to modify the 'status' field of the relevant job list entry to BACKGROUND
     //    (as it was STOPPED before this)
-
-    return 0;
 }
 
 int await_background_job(strvec_t *tokens, job_list_t *jobs) {
