@@ -183,22 +183,28 @@ int main(int argc, char **argv) {
                 // parent process
             } else if (pid > 0) {
                 int status;
-                // put the child process in the foreground (keyboard signals redirect to this
-                // process)
-                if (tcsetpgrp(STDIN_FILENO, pid) == -1) {
-                    perror("process group change failed");
-                }
-                // wait for child to execute
-                if (waitpid(pid, &status, WUNTRACED) == -1) {
-                    perror("wait failed");
-                }
-                // restore keyboard input signals to parent process after execution
-                if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
-                    perror("process group restore failed");
-                }
-                //  int res = WEXITSTATUS(status);
-                if (WIFSTOPPED(status) == 1) {
-                    job_list_add(&jobs, pid, strvec_get(&tokens, 0), status);
+                int last_index = strvec_find(&tokens, "&");
+                if (last_index != (tokens.length - 1)) {
+                    // put the child process in the foreground (keyboard signals redirect to this
+                    // process)
+                    if (tcsetpgrp(STDIN_FILENO, pid) == -1) {
+                        perror("process group change failed");
+                    }
+                    // wait for child to execute
+                    if (waitpid(pid, &status, WUNTRACED) == -1) {
+                        perror("wait failed");
+                    }
+                    // restore keyboard input signals to parent process after execution
+                    if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
+                        perror("process group restore failed");
+                    }
+                    //  int res = WEXITSTATUS(status);
+                    if (WIFSTOPPED(status) == 1) {
+                        job_list_add(&jobs, pid, strvec_get(&tokens, 0), status);
+                    }
+                } else {
+                    strvec_take(&tokens, (tokens.length - 1));
+                    job_list_add(&jobs, pid, strvec_get(&tokens, 0), BACKGROUND);
                 }
             } else {
                 // run the child process.

@@ -202,35 +202,52 @@ int run_command(strvec_t *tokens) {
 int resume_job(strvec_t *tokens, job_list_t *jobs, int is_foreground) {
     job_t *temp_job;
     int status;
-    int job_id = atoi(strvec_get(tokens, 1));
-    if (job_id < 0) {
-        return -1;
-    }
-    temp_job = job_list_get(jobs, job_id);
-    if (temp_job == NULL) {
-        fprintf(stderr, "Job index out of bounds\n");
-        return -1;
-    }
-    if (tcsetpgrp(STDIN_FILENO, temp_job->pid) == -1) {
-        perror("tcsetpgrp");
-        return -1;
-    }
-    if (kill(temp_job->pid, SIGCONT) == -1) {
-        perror("kill");
-        return -1;
-    }
-    if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
-        perror("wait failed");
-        return -1;
-    }
-    if (WIFEXITED(status) || WIFSIGNALED(status)) {
-        if (job_list_remove(jobs, job_id) == -1) {
+    if (is_foreground) {
+        int job_id = atoi(strvec_get(tokens, 1));
+        if (job_id < 0) {
             return -1;
         }
-    }
-    if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
-        perror("tcsetpgrp");
-        return -1;
+        temp_job = job_list_get(jobs, job_id);
+        if (temp_job == NULL) {
+            fprintf(stderr, "Job index out of bounds\n");
+            return -1;
+        }
+        if (tcsetpgrp(STDIN_FILENO, temp_job->pid) == -1) {
+            perror("tcsetpgrp");
+            return -1;
+        }
+        if (kill(temp_job->pid, SIGCONT) == -1) {
+            perror("kill");
+            return -1;
+        }
+        if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
+            perror("wait failed");
+            return -1;
+        }
+        if (WIFEXITED(status) || WIFSIGNALED(status)) {
+            if (job_list_remove(jobs, job_id) == -1) {
+                return -1;
+            }
+        }
+        if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
+            perror("tcsetpgrp");
+            return -1;
+        }
+    } else {
+        int job_id = atoi(strvec_get(tokens, 1));
+        if (job_id < 0) {
+            return -1;
+        }
+        temp_job = job_list_get(jobs, job_id);
+        if (temp_job == NULL) {
+            fprintf(stderr, "Job index out of bounds\n");
+            return -1;
+        }
+        temp_job->status = BACKGROUND;
+        if (kill(temp_job->pid, SIGCONT) == -1) {
+            perror("kill");
+            return -1;
+        }
     }
     return 0;
     // TODO Task 5: Implement the ability to resume stopped jobs in the foreground
