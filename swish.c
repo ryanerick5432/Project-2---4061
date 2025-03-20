@@ -197,6 +197,9 @@ int main(int argc, char **argv) {
                     perror("process group restore failed");
                 }
                 //  int res = WEXITSTATUS(status);
+                if (WIFSTOPPED(status) == 1) {
+                    job_list_add(&jobs, pid, strvec_get(&tokens, 0), status);
+                }
             } else {
                 // run the child process.
                 if (run_command(&tokens) == -1) {
