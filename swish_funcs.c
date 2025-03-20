@@ -270,17 +270,58 @@ int resume_job(strvec_t *tokens, job_list_t *jobs, int is_foreground) {
 }
 
 int await_background_job(strvec_t *tokens, job_list_t *jobs) {
+    int job_id;
+    job_t *temp_job;
+    int status;
+    job_id = atoi(strvec_get(tokens, 1));
+    if (job_id < 0) {
+        return -1;
+    }
+    temp_job = job_list_get(jobs, job_id);
+    if (temp_job == NULL) {
+        fprintf(stderr, "Job index out of bounds\n");
+        return -1;
+    }
+    if (temp_job->status != BACKGROUND) {
+        fprintf(stderr, "Job index is for stopped process not background process\n");
+        return -1;
+    }
+    if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
+        return -1;
+    }
+    if (WIFEXITED(status) || WIFSIGNALED(status)) {
+        if (job_list_remove(jobs, job_id) == -1) {
+            return -1;
+        }
+    }
+    return 0;
     // TODO Task 6: Wait for a specific job to stop or terminate
     // 1. Look up the relevant job information (in a job_t) from the jobs list
     //    using the index supplied by the user (in tokens index 1)
     // 2. Make sure the job's status is BACKGROUND (no sense waiting for a stopped job)
     // 3. Use waitpid() to wait for the job to terminate, as you have in resume_job() and main().
     // 4. If the process terminates (is not stopped by a signal) remove it from the jobs list
-
-    return 0;
 }
 
 int await_all_background_jobs(job_list_t *jobs) {
+    job_t *temp_job;
+    int status;
+    for (int i = 0; i < jobs->length; i++) {
+        temp_job = job_list_get(jobs, i);
+        if (temp_job == NULL) {
+            fprintf(stderr, "Job index out of bounds\n");
+            return -1;
+        }
+        if (temp_job->status == BACKGROUND) {
+            if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
+                return -1;
+            }
+            if (WIFSTOPPED(status)) {
+                temp_job->status = STOPPED;
+            }
+        }
+    }
+    job_list_remove_by_status(jobs, BACKGROUND);
     // TODO Task 6: Wait for all background jobs to stop or terminate
     // 1. Iterate through the jobs list, ignoring any stopped jobs
     // 2. For a background job, call waitpid() with WUNTRACED.
