@@ -216,48 +216,60 @@ int run_command(strvec_t *tokens) {
 int resume_job(strvec_t *tokens, job_list_t *jobs, int is_foreground) {
     job_t *temp_job;
     int status;
+    // check if meant to be launched in foreground
     if (is_foreground) {
+        // get job_id -> convert to int
         int job_id = atoi(strvec_get(tokens, 1));
         if (job_id < 0) {
             return -1;
         }
+        // use id to get actual job
         temp_job = job_list_get(jobs, job_id);
         if (temp_job == NULL) {
             fprintf(stderr, "Job index out of bounds\n");
             return -1;
         }
+        // sets job to foreground
         if (tcsetpgrp(STDIN_FILENO, temp_job->pid) == -1) {
             perror("tcsetpgrp");
             return -1;
         }
+        // send signal to job to resume execution
         if (kill(temp_job->pid, SIGCONT) == -1) {
             perror("kill");
             return -1;
         }
+        // wait for it to finish/stop
         if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
             perror("wait failed");
             return -1;
         }
+        // if job terminated -> remove from jobs
         if (WIFEXITED(status) || WIFSIGNALED(status)) {
             if (job_list_remove(jobs, job_id) == -1) {
                 return -1;
             }
         }
+        // make calling process foreground again
         if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
             perror("tcsetpgrp");
             return -1;
         }
     } else {
+        // get job id-> convert to int
         int job_id = atoi(strvec_get(tokens, 1));
         if (job_id < 0) {
             return -1;
         }
+        // use job id to get actual job
         temp_job = job_list_get(jobs, job_id);
         if (temp_job == NULL) {
             fprintf(stderr, "Job index out of bounds\n");
             return -1;
         }
+        // set job to BACKGROUND
         temp_job->status = BACKGROUND;
+        // send signal to continue job
         if (kill(temp_job->pid, SIGCONT) == -1) {
             perror("kill");
             return -1;
@@ -287,22 +299,27 @@ int await_background_job(strvec_t *tokens, job_list_t *jobs) {
     int job_id;
     job_t *temp_job;
     int status;
+    // get job_id -> convert to int
     job_id = atoi(strvec_get(tokens, 1));
     if (job_id < 0) {
         return -1;
     }
+    // get job front job_id
     temp_job = job_list_get(jobs, job_id);
     if (temp_job == NULL) {
         fprintf(stderr, "Job index out of bounds\n");
         return -1;
     }
+    // only consider BACKGROUND jobs
     if (temp_job->status != BACKGROUND) {
         fprintf(stderr, "Job index is for stopped process not background process\n");
         return -1;
     }
+    // wait for BACKGROUND process
     if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
         return -1;
     }
+    // if job Terminated -> remove from job list
     if (WIFEXITED(status) || WIFSIGNALED(status)) {
         if (job_list_remove(jobs, job_id) == -1) {
             return -1;
@@ -320,21 +337,26 @@ int await_background_job(strvec_t *tokens, job_list_t *jobs) {
 int await_all_background_jobs(job_list_t *jobs) {
     job_t *temp_job;
     int status;
+    // iterate through all jobs
     for (int i = 0; i < jobs->length; i++) {
+        // store current jobs
         temp_job = job_list_get(jobs, i);
         if (temp_job == NULL) {
             fprintf(stderr, "Job index out of bounds\n");
             return -1;
         }
+        // if job is in BACKGROUND then wait for it to finish
         if (temp_job->status == BACKGROUND) {
             if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
                 return -1;
             }
+            // if the job got STOPPED then set status
             if (WIFSTOPPED(status)) {
                 temp_job->status = STOPPED;
             }
         }
     }
+    // Remove all BACKGROUND jobs as they have finished
     job_list_remove_by_status(jobs, BACKGROUND);
     // TODO Task 6: Wait for all background jobs to stop or terminate
     // 1. Iterate through the jobs list, ignoring any stopped jobs

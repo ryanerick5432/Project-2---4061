@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
             } else if (pid > 0) {
                 int status;
                 int last_index = strvec_find(&tokens, "&");
+                // check if the & was found in the last position - below is no case
                 if (last_index != (tokens.length - 1)) {
                     // put the child process in the foreground (keyboard signals redirect to this
                     // process)
@@ -191,13 +192,18 @@ int main(int argc, char **argv) {
                     if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) {
                         perror("process group restore failed");
                     }
-                    //  int res = WEXITSTATUS(status);
+                    // check if the job was stopped
                     if (WIFSTOPPED(status) == 1) {
-                        job_list_add(&jobs, pid, strvec_get(&tokens, 0), status);
+                        if (job_list_add(&jobs, pid, strvec_get(&tokens, 0), status) == -1) {
+                            printf("job list add failed");
+                        }
                     }
                 } else {
+                    // when & is last symbol -> this runs in background (removes & then adds job)
                     strvec_take(&tokens, (tokens.length - 1));
-                    job_list_add(&jobs, pid, strvec_get(&tokens, 0), BACKGROUND);
+                    if (job_list_add(&jobs, pid, strvec_get(&tokens, 0), BACKGROUND) == -1) {
+                        printf("job list add failed");
+                    }
                 }
             } else {
                 // run the child process.
