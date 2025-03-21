@@ -70,17 +70,17 @@ int run_command(strvec_t *tokens) {
             return -1;
         }
 
-        // overwrite and redirect output file - set flags
+        // overwrite and redirect output file - set flags, and redirect location
         if (strcmp(strvec_get(tokens, i), ">") == 0) {
             out_loc = i;
             out_flag = 1;
             i++;
-            // redirect input file - set flags
+            // redirect input file - set flags, and redirect location
         } else if (strcmp(strvec_get(tokens, i), "<") == 0) {
             in_loc = i;
             in_flag = 1;
             i++;
-            // append and redirect output file - set flags
+            // append and redirect output file - set flags, and redirect locaton
         } else if (strcmp(strvec_get(tokens, i), ">>") == 0) {
             out_loc = i;
             out_flag = 1;
@@ -105,11 +105,16 @@ int run_command(strvec_t *tokens) {
                 perror("Failed to open output file");
                 return -1;
             }
+            // redirect output to out_fd
             if (dup2(out_fd, STDOUT_FILENO) == -1) {
+                perror("dup2");
                 close(out_fd);
                 return -1;
             }
+
+            // close output file, unneeded now
             if (close(out_fd) == -1) {
+                perror("Failed to close output file");
                 dup2(stdout_bak, STDOUT_FILENO);
                 return -1;
             }
@@ -120,12 +125,15 @@ int run_command(strvec_t *tokens) {
                 perror("Failed to open output file");
                 return -1;
             }
-
+            // redirect output
             if (dup2(out_fd, STDOUT_FILENO) == -1) {
+                perror("dup2");
                 close(out_fd);
                 return -1;
             }
+            // close out_fd, unneeded now
             if (close(out_fd) == -1) {
+                perror("Failed to close output file");
                 dup2(stdout_bak, STDOUT_FILENO);
                 return -1;
             }
@@ -141,15 +149,18 @@ int run_command(strvec_t *tokens) {
             }
             return -1;
         }
-
+        // redirect input to be from in_fd
         if (dup2(in_fd, STDIN_FILENO) == -1) {
+            perror("dup2");
             close(in_fd);
             if (out_flag != 1) {
                 dup2(stdout_bak, STDOUT_FILENO);
             }
             return -1;
         }
+        // close in_fd
         if (close(in_fd) == -1) {
+            perror("Failed to close input file");
             dup2(stdin_bak, STDIN_FILENO);
             if (out_flag != 1) {
                 dup2(stdout_bak, STDOUT_FILENO);
@@ -160,6 +171,7 @@ int run_command(strvec_t *tokens) {
 
     // child process - make child own process group
     if (setpgid(0, getpid()) == -1) {
+        perror("Failed to separate Child Process");
         return -1;
     }
 
@@ -167,10 +179,12 @@ int run_command(strvec_t *tokens) {
     struct sigaction sac;
     sac.sa_handler = SIG_DFL;
     if (sigfillset(&sac.sa_mask) == -1) {
+        perror("sigfillset");
         return -1;
     }
     sac.sa_flags = SA_RESTART;
     if (sigaction(SIGTTIN, &sac, NULL) == -1 || sigaction(SIGTTOU, &sac, NULL) == -1) {
+        perror("sigaction");
         return -1;
     }
 

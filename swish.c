@@ -62,8 +62,7 @@ int main(int argc, char **argv) {
             char buf[CMD_LEN];    // buffer to hold current path name
             if (getcwd(buf, CMD_LEN) == NULL) {
                 perror("getcwd");
-                strvec_clear(&tokens);
-                strvec_init(&tokens);
+
             } else {
                 // print the current path name
                 printf("%s\n", buf);
@@ -83,22 +82,18 @@ int main(int argc, char **argv) {
             // too many input arguments
             if (len_args > 2) {
                 printf("Invalid arguments");
-                strvec_clear(&tokens);
-                strvec_init(&tokens);
 
                 // Return to Home Dir
             } else if (len_args == 1) {
                 // get the home directory
                 if ((new_env = getenv("HOME")) == NULL) {
-                    printf("chdir");
-                    strvec_clear(&tokens);
-                    strvec_init(&tokens);
+                    perror("chdir");
+                    job_list_free(&jobs);
 
                     // enter the home directory
                 } else if (chdir(new_env) == -1) {
-                    printf("chdir");
-                    strvec_clear(&tokens);
-                    strvec_init(&tokens);
+                    perror("chdir");
+                    job_list_free(&jobs);
                 }
 
                 // enter a new directory
@@ -107,15 +102,13 @@ int main(int argc, char **argv) {
                 new_env = strvec_get(&tokens, 1);
                 // enter the new directory
                 if (chdir(new_env) == -1) {
-                    printf("chdir: No such file or directory\n");
-                    strvec_clear(&tokens);
-                    strvec_init(&tokens);
+                    perror("chdir");
                 }
             }
         }
 
         else if (strcmp(first_token, "exit") == 0) {
-            strvec_clear(&tokens);
+            job_list_free(&jobs);
             break;
         }
 
