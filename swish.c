@@ -201,7 +201,9 @@ int main(int argc, char **argv) {
                     }
                     // check if the job was stopped
                     if (WIFSTOPPED(status) == 1) {
-                        job_list_add(&jobs, pid, strvec_get(&tokens, 0), status);
+                        if (job_list_add(&jobs, pid, strvec_get(&tokens, 0), status) == -1) {
+                            printf("job list add failed");
+                        }
                     }
                 } else {
                     // when & is last symbol -> this runs in background (removes & then adds job)
