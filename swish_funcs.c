@@ -302,6 +302,7 @@ int await_background_job(strvec_t *tokens, job_list_t *jobs) {
     // get job_id -> convert to int
     job_id = atoi(strvec_get(tokens, 1));
     if (job_id < 0) {
+        fprintf(stderr, "invalid job id");
         return -1;
     }
     // get job front job_id
@@ -317,11 +318,13 @@ int await_background_job(strvec_t *tokens, job_list_t *jobs) {
     }
     // wait for BACKGROUND process
     if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
+        perror("waitpid");
         return -1;
     }
     // if job Terminated -> remove from job list
     if (WIFEXITED(status) || WIFSIGNALED(status)) {
         if (job_list_remove(jobs, job_id) == -1) {
+            fprintf(stderr, "failed to remove job");
             return -1;
         }
     }
@@ -348,6 +351,7 @@ int await_all_background_jobs(job_list_t *jobs) {
         // if job is in BACKGROUND then wait for it to finish
         if (temp_job->status == BACKGROUND) {
             if (waitpid(temp_job->pid, &status, WUNTRACED) == -1) {
+                perror("waitpid");
                 return -1;
             }
             // if the job got STOPPED then set status
